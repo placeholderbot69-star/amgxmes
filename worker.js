@@ -1,7 +1,7 @@
 // Cloudflare Workers Backend for AMONGUSGXMES
 // Supports: Ultraviolet, Rammerhead, Scramjet
 
-// Removed import { Router } from './router.js';
+
 
 const CONFIG = {
   // Frontend domain (for CORS)
