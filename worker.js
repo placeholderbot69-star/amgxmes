@@ -21,8 +21,7 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
-// Router
-class Router {
+const router = new Router();
   constructor() {
     this.routes = new Map();
   }
