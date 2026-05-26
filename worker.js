@@ -38,8 +38,7 @@ class Router {
     this.routes.set(`POST:${path}`, handler);
   }
 
-  async handle(request) {
-    const url = new URL(request.url);
+  async handle(request, url) {
     const key = `${request.method}:${url.pathname}`;
 
     if (this.routes.has(key)) {
@@ -151,7 +150,6 @@ function generateSessionId() {
 router.get('/rammerhead/:sessionId*', async (request, url) => {
   const pathParts = url.pathname.split('/').filter(Boolean);
   const sessionId = pathParts[1] || generateSessionId();
-  const targetPath = pathParts.slice(2).join('/');
 
   if (!sessions.has(sessionId)) {
     sessions.set(sessionId, {
@@ -353,7 +351,6 @@ router.get('/scramjet/service/:url*', async (request, url) => {
       });
     }
 
-    // Pass through non-HTML responses
     return new Response(response.body, {
       status: response.status,
       headers: {
@@ -438,8 +435,10 @@ export default {
       });
     }
 
-    const response = await router.handle(request);
+    const url = new URL(request.url);
+    const response = await router.handle(request, url);
 
+    // Add CORS headers to response
     Object.entries(corsHeaders).forEach(([key, value]) => {
       response.headers.set(key, value);
     });
