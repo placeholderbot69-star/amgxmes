@@ -1,7 +1,7 @@
 // Cloudflare Workers Backend for AMONGUSGXMES
 // Supports: Ultraviolet, Rammerhead, Scramjet
 
-import { Router } from './router.js';
+// import { Router } from './router.js'; // Removed this import
 
 // Configuration
 const CONFIG = {
@@ -21,8 +21,8 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
-// Router
-class Router {
+// Custom Router class to avoid name conflict
+class CustomRouter {
   constructor() {
     this.routes = new Map();
   }
@@ -46,13 +46,13 @@ class Router {
     
     // Check for exact match
     if (this.routes.has(key)) {
-      return this.routes.get(key)(request);
+      return this.routes.get(key)(request, url);
     }
 
     // Check for pattern match
     for (const [routeKey, handler] of this.routes) {
-      const [method, path] = routeKey.split(':');
-      if (method === request.method && this.matchPath(path, url.pathname)) {
+      const [method, pattern] = routeKey.split(':');
+      if (method === request.method && this.matchPath(pattern, url.pathname)) {
         return handler(request, url);
       }
     }
@@ -70,7 +70,8 @@ class Router {
   }
 }
 
-const router = new Router();
+// Instantiate the router
+const router = new CustomRouter();
 
 // ==================== ULTRAVIOLET ====================
 
@@ -86,12 +87,12 @@ function xorEncode(str, key) {
 // UV service endpoint
 router.get('/uv/service/:encoded', async (request, url) => {
   const encoded = url.pathname.split('/').pop();
-  
+
   try {
     // Decode
     const decoded = atob(encoded);
     const targetUrl = xorEncode(decoded, CONFIG.uvKey);
-    
+
     // Fetch target
     const response = await fetch(targetUrl, {
       method: request.method,
