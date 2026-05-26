@@ -1,8 +1,6 @@
 // Cloudflare Workers Backend for AMONGUSGXMES
 // Supports: Ultraviolet, Rammerhead, Scramjet
 
-
-
 const CONFIG = {
   // Frontend domain (for CORS)
   frontend: 'https://amongusgxmes.placeholderbot-69.workers.dev',
@@ -355,9 +353,9 @@ router.get('/scramjet/service/:url*', async (request, url) => {
       });
     }
 
+    // Pass through non-HTML responses
     return new Response(response.body, {
       status: response.status,
-      statusText: response.statusText,
       headers: {
         ...Object.fromEntries(response.headers),
         ...corsHeaders,
