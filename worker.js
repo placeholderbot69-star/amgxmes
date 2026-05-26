@@ -1,9 +1,8 @@
 // Cloudflare Workers Backend for AMONGUSGXMES
 // Supports: Ultraviolet, Rammerhead, Scramjet
 
-// import { Router } from './router.js'; // Removed this import
+// Removed import { Router } from './router.js';
 
-// Configuration
 const CONFIG = {
   // Frontend domain (for CORS)
   frontend: 'https://amongusgxmes.placeholderbot-69.workers.dev',
@@ -21,8 +20,9 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
-// Custom Router class to avoid name conflict
-class CustomRouter {
+// =================== Router Class ===================
+
+class Router {
   constructor() {
     this.routes = new Map();
   }
@@ -43,13 +43,11 @@ class CustomRouter {
   async handle(request) {
     const url = new URL(request.url);
     const key = `${request.method}:${url.pathname}`;
-    
-    // Check for exact match
+
     if (this.routes.has(key)) {
       return this.routes.get(key)(request, url);
     }
 
-    // Check for pattern match
     for (const [routeKey, handler] of this.routes) {
       const [method, pattern] = routeKey.split(':');
       if (method === request.method && this.matchPath(pattern, url.pathname)) {
@@ -61,7 +59,6 @@ class CustomRouter {
   }
 
   matchPath(pattern, actual) {
-    // Convert pattern to regex
     const regexPattern = pattern
       .replace(/\*/g, '.*')
       .replace(/:([^/]+)/g, '([^/]+)');
@@ -70,8 +67,7 @@ class CustomRouter {
   }
 }
 
-// Instantiate the router
-const router = new CustomRouter();
+const router = new Router();
 
 // ==================== ULTRAVIOLET ====================
 
@@ -89,11 +85,9 @@ router.get('/uv/service/:encoded', async (request, url) => {
   const encoded = url.pathname.split('/').pop();
 
   try {
-    // Decode
     const decoded = atob(encoded);
     const targetUrl = xorEncode(decoded, CONFIG.uvKey);
 
-    // Fetch target
     const response = await fetch(targetUrl, {
       method: request.method,
       headers: {
@@ -103,7 +97,6 @@ router.get('/uv/service/:encoded', async (request, url) => {
       body: request.body,
     });
 
-    // Clone and modify response
     const modified = new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
@@ -116,53 +109,52 @@ router.get('/uv/service/:encoded', async (request, url) => {
 
     return modified;
   } catch (e) {
-    return new Response('Invalid URL', { 
+    return new Response('Invalid URL', {
       status: 400,
-      headers: corsHeaders 
+      headers: corsHeaders,
     });
   }
 });
 
 // UV config endpoint
 router.get('/uv/config', () => {
-  return new Response(JSON.stringify({
-    bare: '/bare/',
-    prefix: '/uv/service/',
-    encodeUrl: (url) => {
-      const encoded = xorEncode(url, CONFIG.uvKey);
-      return btoa(encoded).replace(/=/g, '');
-    },
-    decodeUrl: (encoded) => {
-      const decoded = atob(encoded);
-      return xorEncode(decoded, CONFIG.uvKey);
+  return new Response(
+    JSON.stringify({
+      bare: '/bare/',
+      prefix: '/uv/service/',
+      encodeUrl: (url) => {
+        const encoded = xorEncode(url, CONFIG.uvKey);
+        return btoa(encoded).replace(/=/g, '');
+      },
+      decodeUrl: (encoded) => {
+        const decoded = atob(encoded);
+        return xorEncode(decoded, CONFIG.uvKey);
+      },
+    }),
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
     }
-  }), {
-    headers: {
-      'Content-Type': 'application/json',
-      ...corsHeaders
-    }
-  });
+  );
 });
 
 // ==================== RAMMERHEAD ====================
 
-// Session storage (in-memory, will reset on worker restart)
 const sessions = new Map();
 
-// Generate session ID
 function generateSessionId() {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)))
-    .map(b => b.toString(16).padStart(2, '0'))
+    .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
-// Rammerhead main endpoint
 router.get('/rammerhead/:sessionId*', async (request, url) => {
   const pathParts = url.pathname.split('/').filter(Boolean);
   const sessionId = pathParts[1] || generateSessionId();
   const targetPath = pathParts.slice(2).join('/');
 
-  // If no session, create one
   if (!sessions.has(sessionId)) {
     sessions.set(sessionId, {
       created: Date.now(),
@@ -173,7 +165,6 @@ router.get('/rammerhead/:sessionId*', async (request, url) => {
 
   const session = sessions.get(sessionId);
 
-  // Decode target URL from sessionId if it's base64
   let targetUrl;
   try {
     targetUrl = atob(sessionId);
@@ -181,8 +172,8 @@ router.get('/rammerhead/:sessionId*', async (request, url) => {
       throw new Error('Invalid URL');
     }
   } catch {
-    // Not a URL, use default or return session page
-    return new Response(`
+    return new Response(
+      `
       <html>
         <head><title>Rammerhead Session</title></head>
         <body>
@@ -190,36 +181,36 @@ router.get('/rammerhead/:sessionId*', async (request, url) => {
           <p>Navigate to /rammerhead/[base64url] to browse</p>
         </body>
       </html>
-    `, {
-      headers: {
-        'Content-Type': 'text/html',
-        ...corsHeaders
+    `,
+      {
+        headers: {
+          'Content-Type': 'text/html',
+          ...corsHeaders,
+        },
       }
-    });
+    );
   }
 
-  // Fetch target
   try {
     const targetResponse = await fetch(targetUrl, {
       method: request.method,
       headers: {
         ...Object.fromEntries(request.headers),
-        'Cookie': Array.from(session.cookies.entries())
-          .map(([k, v]) => `${k}=${v}`).join('; '),
+        Cookie: Array.from(session.cookies.entries())
+          .map(([k, v]) => `${k}=${v}`)
+          .join('; '),
       },
       body: request.body,
     });
 
-    // Store cookies
     const setCookie = targetResponse.headers.get('set-cookie');
     if (setCookie) {
-      setCookie.split(',').forEach(cookie => {
+      setCookie.split(',').forEach((cookie) => {
         const [name, ...rest] = cookie.split('=');
         session.cookies.set(name.trim(), rest.join('=').split(';')[0].trim());
       });
     }
 
-    // Modify response
     const body = await targetResponse.text();
     const modifiedBody = body
       .replace(/href="([^"]*)"/g, (match, url) => {
@@ -245,20 +236,19 @@ router.get('/rammerhead/:sessionId*', async (request, url) => {
       },
     });
   } catch (e) {
-    return new Response('Proxy Error: ' + e.message, { 
+    return new Response('Proxy Error: ' + e.message, {
       status: 500,
-      headers: corsHeaders 
+      headers: corsHeaders,
     });
   }
 });
 
-// Rammerhead password check
 router.post('/rammerhead/session', async (request) => {
   const body = await request.json();
   if (body.password !== CONFIG.rhPassword) {
-    return new Response('Invalid password', { 
+    return new Response('Invalid password', {
       status: 401,
-      headers: corsHeaders 
+      headers: corsHeaders,
     });
   }
 
@@ -272,21 +262,20 @@ router.post('/rammerhead/session', async (request) => {
   return new Response(JSON.stringify({ sessionId }), {
     headers: {
       'Content-Type': 'application/json',
-      ...corsHeaders
-    }
+      ...corsHeaders,
+    },
   });
 });
 
 // ==================== SCRAMJET ====================
 
-// Scramjet service endpoint
 router.get('/scramjet/service/:url*', async (request, url) => {
   const targetUrl = decodeURIComponent(url.pathname.replace('/scramjet/service/', ''));
-  
+
   if (!targetUrl) {
-    return new Response('No URL provided', { 
+    return new Response('No URL provided', {
       status: 400,
-      headers: corsHeaders 
+      headers: corsHeaders,
     });
   }
 
@@ -301,13 +290,11 @@ router.get('/scramjet/service/:url*', async (request, url) => {
     });
 
     const contentType = response.headers.get('content-type') || '';
-    
+
     if (contentType.includes('text/html')) {
       let body = await response.text();
-      
-      // Basic Scramjet rewriting
+
       body = body
-        // Rewrite URLs
         .replace(/(href|src|action)="([^"]*)"/g, (match, attr, url) => {
           if (url.startsWith('http')) {
             return `${attr}="/scramjet/service/${encodeURIComponent(url)}"`;
@@ -318,12 +305,9 @@ router.get('/scramjet/service/:url*', async (request, url) => {
           }
           return match;
         })
-        // Rewrite window.location
         .replace(/window\.location/g, 'window.__scramjet$location')
-        // Rewrite document.location
         .replace(/document\.location/g, 'document.__scramjet$location');
 
-      // Inject Scramjet runtime
       const script = `
         <script>
           (() => {
@@ -336,15 +320,12 @@ router.get('/scramjet/service/:url*', async (request, url) => {
                 if (prop === 'href') {
                   window.location.href = '/scramjet/service/' + encodeURIComponent(value);
                   return true;
-              }
+                }
                 target[prop] = value;
                 return true;
               }
             });
-            
             document.__scramjet$location = window.__scramjet$location;
-            
-            // Intercept fetch
             const originalFetch = window.fetch;
             window.fetch = function(url, options) {
               if (typeof url === 'string' && url.startsWith('http')) {
@@ -352,8 +333,6 @@ router.get('/scramjet/service/:url*', async (request, url) => {
               }
               return originalFetch.call(this, url, options);
             };
-            
-            // Intercept XMLHttpRequest
             const originalOpen = XMLHttpRequest.prototype.open;
             XMLHttpRequest.prototype.open = function(method, url, ...args) {
               if (url.startsWith('http')) {
@@ -376,7 +355,6 @@ router.get('/scramjet/service/:url*', async (request, url) => {
       });
     }
 
-    // Pass through non-HTML responses
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
@@ -386,9 +364,9 @@ router.get('/scramjet/service/:url*', async (request, url) => {
       },
     });
   } catch (e) {
-    return new Response('Proxy Error: ' + e.message, { 
+    return new Response('Proxy Error: ' + e.message, {
       status: 500,
-      headers: corsHeaders 
+      headers: corsHeaders,
     });
   }
 });
@@ -436,23 +414,25 @@ router.options('/bare/', () => {
 // ==================== HEALTH CHECK ====================
 
 router.get('/health', () => {
-  return new Response(JSON.stringify({
-    status: 'ok',
-    timestamp: Date.now(),
-    version: '1.0.0',
-  }), {
-    headers: {
-      'Content-Type': 'application/json',
-      ...corsHeaders,
-    },
-  });
+  return new Response(
+    JSON.stringify({
+      status: 'ok',
+      timestamp: Date.now(),
+      version: '1.0.0',
+    }),
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+    }
+  );
 });
 
 // ==================== MAIN HANDLER ====================
 
 export default {
   async fetch(request, env, ctx) {
-    // Handle CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
@@ -460,10 +440,8 @@ export default {
       });
     }
 
-    // Route request
     const response = await router.handle(request);
 
-    // Add CORS to all responses
     Object.entries(corsHeaders).forEach(([key, value]) => {
       response.headers.set(key, value);
     });
