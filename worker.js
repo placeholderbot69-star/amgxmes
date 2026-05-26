@@ -22,7 +22,7 @@ const corsHeaders = {
 };
 
 const router = new Router();
-  constructor() {
+  constructor() ;{
     this.routes = new Map();
   }
 
